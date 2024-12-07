@@ -1,1 +1,22 @@
-.env
+# Node modules
+node_modules/
+
+# Environment variables
+.env/
+
+# Logs
+*.log
+
+# VSCode workspace settings
+.vscode/
+
+# OS-specific files
+.DS_Store       # macOS
+Thumbs.db        # Windows
+
+# Nodemon temporary files (optional)
+*.pid
+*.seed
+
+# npm debug log
+npm-debug.log*
