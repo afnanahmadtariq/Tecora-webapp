@@ -4,6 +4,7 @@ const cors = require('cors');
 const postRoutes = require('./routes/posts');
 const queries = require('./controllers/myQueries');  
 const projects = require('./controllers/projects'); 
+const createRoutes = require('./routes/createUser');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -15,6 +16,8 @@ app.use(morgan('dev')); // Add this line for logging
 
 // Routes
 app.use('/api/posts', postRoutes);
+
+app.use('/api/create-user', createRoutes);
 
 // Endpoint to get queries
 app.get('/api/queries', (req, res) => {
