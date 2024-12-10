@@ -1,8 +1,8 @@
 const express = require('express');
-const { createUser } = require('../controllers/createUser');
+const { queries } = require('../controllers/myQueries');
 const router = express.Router();
 
 // Endpoint for receiving query posts
-router.post('/', createUser);
+router.get('/', queries);
 
 module.exports = router;

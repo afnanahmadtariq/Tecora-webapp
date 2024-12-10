@@ -5,6 +5,10 @@ const postRoutes = require('./routes/posts');
 const queries = require('./controllers/myQueries');  
 const projects = require('./controllers/projects'); 
 const createRoutes = require('./routes/createUser');
+const updateRoutes = require('./routes/updateUser');
+const queriesRoutes = require('./routes/queries');
+const loginRoutes = require('./routes/login');
+const query1 = require("./controllers/myQueries");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -18,16 +22,19 @@ app.use(morgan('dev')); // Add this line for logging
 app.use('/api/posts', postRoutes);
 
 app.use('/api/create-user', createRoutes);
+app.use('/api/update-user', updateRoutes);
+app.use('/api/login', loginRoutes);
 
 // Endpoint to get queries
-app.get('/api/queries', (req, res) => {
-  res.json(queries);
-});
+app.use('/api/queries', queriesRoutes);
 
 app.get('/api/projects', (req, res) => {
   res.json(projects);
 });
 
+app.get('/api/queries/1', (req, res) => {
+  res.json(query1);
+});
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
