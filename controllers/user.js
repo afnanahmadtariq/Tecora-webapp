@@ -1,10 +1,48 @@
 require("dotenv").config(); 
 const { neon } = require("@neondatabase/serverless");
-// const bcrypt = require('bcrypt');
+const bcrypt = require("bcrypt");
+
+const sql = neon(process.env.DATABASE_URL);
+
+async function hashPassword(password) {
+  const saltRounds = 10;
+  const hashedPassword = await bcrypt.hash(password, saltRounds);
+  return hashedPassword;
+}
+
+createUser = async (username, email, password, res) => {
+  try {
+    const result = await sql`
+      INSERT INTO main."User" ("username", "email", "password")
+      VALUES ( ${username}, ${email}, ${password})
+      RETURNING "id";
+    `;
+    res.status(201).json({
+      message: "User created successfully",
+      user_id: result[0].id,
+    });
+  } catch (err) {
+    console.error("Error inserting user data:", err);
+    res.status(500).json({ error: "Failed to create user" });
+  }
+}
+
+register = async(req, res) => {
+  const { username, email, password} = req.body;
+
+  try {
+        const hashedPassword = await hashPassword(password);
+        await createUser(username, email, hashedPassword, res);
+        // res.status(201).json({ message: 'User created successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Server error' });
+    }
+}
 
 // const saltRounds = 10;
 
-// Hashing a password
+// // Hashing a password
 // bcrypt.hash('user_password', saltRounds, (err, hashedPassword) => {
 //   if (err) {
 //     console.log('Error hashing password:', err);
@@ -25,16 +63,15 @@ const { neon } = require("@neondatabase/serverless");
 //   });
 // });
 
-const sql = neon(process.env.DATABASE_URL);
 
-exports.loginUser = async (req, res) => {
-    const { email, password } = req.body;
+login = async(req, res) => {
+  const { email, password } = req.body;
   
     try {
       // Query to find user by email
       const result = await sql`
-        SELECT "user_id", "username", "email", "password", "profile_pic"
-        FROM "User"
+        SELECT "id", "username", "email", "password", "profile pic"
+        FROM main."User"
         WHERE "email" = ${email};
       `;
   
@@ -47,8 +84,12 @@ exports.loginUser = async (req, res) => {
   
       // Compare the provided password with the stored password
       // Assuming you use bcrypt or another hashing library for password comparison
-    //   const isPasswordValid = await bcrypt.compare(password, user.password);
-      const isPasswordValid = password ==  user.password;
+      passwordHash = await hashPassword(password);
+      const isPasswordValid = await bcrypt.compare(passwordHash, user.password);
+      console.log("", isPasswordValid);
+      console.log("", passwordHash);
+      console.log("", user.password);
+      // const isPasswordValid = password ==  user.password;
   
       if (!isPasswordValid) {
         return res.status(400).json({ error: "Invalid email or password" });
@@ -66,5 +107,6 @@ exports.loginUser = async (req, res) => {
       console.error("Error logging in user:", err);
       res.status(500).json({ error: "Internal server error" });
     }
-  };
-  
+}
+
+module.exports = { login, register };
