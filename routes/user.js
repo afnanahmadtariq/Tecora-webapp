@@ -1,8 +1,8 @@
 const express = require('express');
-const { register } = require('../controllers/user');
+const { register } = require('../controllers/userController');
 const authEmail = require('../middleware/authEmail');
 const router = express.Router();
-const { login } = require("../controllers/user");
+const { login } = require("../controllers/userController");
 
 
 // async function hashPassword(password) {
