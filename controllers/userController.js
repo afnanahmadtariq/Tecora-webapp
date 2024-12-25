@@ -120,7 +120,7 @@ login = async(req, res) => {
         username: user.username,
       };
 
-      const token = jwt.sign(payload, secretKey, { algorithm: 'HS256', expiresIn: '1h' });
+      const token = jwt.sign(payload, secretKey, { algorithm: 'HS256', expiresIn: '3d' });
       
       // Password is correct, respond with user data
       res.status(200).json({
