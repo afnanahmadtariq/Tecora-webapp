@@ -13,12 +13,12 @@ exports.createProject = async (req, res) => {
 
   try {
     const result = await sql`
-      INSERT INTO main."Project" ("user id", "name", "description")
+      INSERT INTO "Project" ("user id", "name", "description")
       VALUES ( ${user_id}, ${name}, ${content})
       RETURNING "id";
     `;
     // await sql`
-    //   INSERT INTO main."
+    //   INSERT INTO "
     // `;
     // Get Tech stack id from tech stack table and enter in post tech stack table
     res.status(201).json({
@@ -36,8 +36,8 @@ exports.feedProjects = async (req, res) => {
   try {
     const result = await sql`
     SELECT "profile pic", "username", "name", "description", "date of creation", "community id", "progress"
-    FROM main."Project"
-    LEFT JOIN main."User" ON "Project"."user id" = "User"."id";
+    FROM "Project"
+    LEFT JOIN "User" ON "Project"."user id" = "User"."id";
   `;
     console.log(result); 
     res.status(201).json({

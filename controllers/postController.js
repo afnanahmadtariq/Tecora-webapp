@@ -13,12 +13,12 @@ exports.createPost = async (req, res) => {
 
   try {
     const result = await sql`
-      INSERT INTO main."Post" ("user id", "title", "description")
+      INSERT INTO "Post" ("user id", "title", "description")
       VALUES ( ${user_id}, ${title}, ${content})
       RETURNING "id";
     `;
     // await sql`
-    //   INSERT INTO main."
+    //   INSERT INTO "
     // `;
     // Get Tech stack id from tech stack table and enter in post tech stack table
     res.status(201).json({
@@ -31,13 +31,31 @@ exports.createPost = async (req, res) => {
   }
 };
 
-
 exports.feedPosts = async (req, res) => {
   try {
     const result = await sql`
-    SELECT "profile pic", "username", "title", "description", "date of posting", "project id", "community id", "type"
-    FROM main."Post"
-    LEFT JOIN main."User" ON "Post"."user id" = "User"."id";
+    SELECT "profile pic", "username", "Post"."id", "title", "description", "date of posting", "project id", "community id", "type"
+    FROM "Post"
+    LEFT JOIN "User" ON "Post"."user id" = "User"."id";
+  `;
+    console.log(result); 
+    res.status(201).json({
+      message: "Feed of Posts",
+      feed: result,
+    });
+  } catch (err) {
+    console.error("Error getting posts feed:", err);
+    res.status(500).json({ error: "Failed to get feed posts" });
+  }
+}
+
+exports.getPost = async (id, req, res) => {
+  try {
+    const result = await sql`
+    SELECT "profile pic", "username", "Post"."id", "title", "description", "date of posting", "project id", "community id", "type"
+    FROM "Post"
+    LEFT JOIN "User" ON "Post"."user id" = "User"."id"
+    WHERE "Post"."id" = ${id};
   `;
     console.log(result); 
     res.status(201).json({
