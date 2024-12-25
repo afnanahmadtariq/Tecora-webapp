@@ -1,42 +1,28 @@
 const express = require('express');
-const { register } = require('../controllers/userController');
+const { checkUser, login, register, userDetails } = require('../controllers/userController');
 const authEmail = require('../middleware/authEmail');
+const authJWT = require('../middleware/authJWT');
 const router = express.Router();
-const { login } = require("../controllers/userController");
-
-
-// async function hashPassword(password) {
-//     const saltRounds = 10;
-//     const hashedPassword = await bcrypt.hash(password, saltRounds);
-//     return hashedPassword;
-// }
 
 router.post('/register', async (req, res) => {
-    // const { username, email, password } = req.body;
+    const { username, email} = req.body;
+    switch (await checkUser(username, email)) {
+        case "found both":
+            return res.status(409).json({ error: "Username and email are already taken" });
+        case "found user":
+            return res.status(409).json({ error: "Username is already taken" });
+        case "found email":
+            return res.status(409).json({ error: "Email is already taken" });
+    }
     authEmail(req, res, register);
-
-    // try {
-    //     const hashedPassword = await hashPassword(password);
-    //     await createUser(username, hashedPassword);
-    //     res.status(201).json({ message: 'User created successfully' });
-    // } catch (error) {
-    //     console.error(error);
-    //     res.status(500).json({ error: 'Server error' });
-    // }
 });
 
 router.post('/login', async (req, res) => {
-    // const { username, email, password } = req.body;
     login(req, res);
+});
 
-    // try {
-    //     const hashedPassword = await hashPassword(password);
-    //     await createUser(username, hashedPassword);
-    //     res.status(201).json({ message: 'User created successfully' });
-    // } catch (error) {
-    //     console.error(error);
-    //     res.status(500).json({ error: 'Server error' });
-    // }
+router.get('/', async (req, res) => {
+    authJWT(req, res, userDetails);
 });
 
 module.exports = router;

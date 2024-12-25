@@ -1,8 +1,48 @@
-require("dotenv").config(); 
+require("dotenv").config();
+const jwt = require('jsonwebtoken');
 const { neon } = require("@neondatabase/serverless");
 const bcrypt = require("bcrypt");
 
 const sql = neon(process.env.DATABASE_URL);
+const secretKey = process.env.JWT_SECRET_KEY;
+
+checkUser = async(username, email) => {
+  try {
+    foundUser = true;
+    const result = await sql`
+      SELECT "id"
+      FROM "User"
+      WHERE "email" = ${email};
+    `;
+    if (result.length === 0) {
+      foundUser = false;
+    }
+    foundEmail = true;
+    const res = await sql`
+      SELECT "id"
+      FROM "User"
+      WHERE "username" = ${username};
+    `;
+    if (res.length === 0) {
+      foundEmail = false;
+    }
+    if (foundEmail && foundEmail) {
+      return "found both";
+    }
+    else if (foundUser) {
+      return "found user";
+    }
+    else if (foundEmail) {
+      return "found email";
+    }
+    else {
+      return "nothing";
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+}
 
 async function hashPassword(password) {
   const saltRounds = 10;
@@ -10,16 +50,20 @@ async function hashPassword(password) {
   return hashedPassword;
 }
 
-createUser = async (username, email, password, res) => {
+async function createUser(username, email, passwordHash, res) {
   try {
     const result = await sql`
-      INSERT INTO main."User" ("username", "email", "password")
-      VALUES ( ${username}, ${email}, ${password})
+      INSERT INTO "User" ("username", "email")
+      VALUES ( ${username}, ${email})
       RETURNING "id";
     `;
+    const userId = result[0].id
+    await sql`
+      INSERT INTO auth."Passwords" ("user id", "password hash")
+      VALUES ( ${userId}, ${passwordHash});
+    `;
     res.status(201).json({
-      message: "User created successfully",
-      user_id: result[0].id,
+      message: "User created successfully"
     });
   } catch (err) {
     console.error("Error inserting user data:", err);
@@ -31,38 +75,14 @@ register = async(req, res) => {
   const { username, email, password} = req.body;
 
   try {
-        const hashedPassword = await hashPassword(password);
-        await createUser(username, email, hashedPassword, res);
-        // res.status(201).json({ message: 'User created successfully' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Server error' });
-    }
+    const hashedPassword = await hashPassword(password);
+    await createUser(username, email, hashedPassword, res);
+    // res.status(201).json({ message: 'User created successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
 }
-
-// const saltRounds = 10;
-
-// // Hashing a password
-// bcrypt.hash('user_password', saltRounds, (err, hashedPassword) => {
-//   if (err) {
-//     console.log('Error hashing password:', err);
-//     return;
-//   }
-
-//   console.log('Hashed Password:', hashedPassword);
-
-//   // Now you can store `hashedPassword` in your database
-
-//   // To compare password later (e.g., during login)
-//   bcrypt.compare('user_password', hashedPassword, (err, result) => {
-//     if (err) {
-//       console.log('Error comparing passwords:', err);
-//       return;
-//     }
-//     console.log('Password match result:', result); // true or false
-//   });
-// });
-
 
 login = async(req, res) => {
   const { email, password } = req.body;
@@ -70,8 +90,8 @@ login = async(req, res) => {
     try {
       // Query to find user by email
       const result = await sql`
-        SELECT "id", "username", "email", "password", "profile pic"
-        FROM main."User"
+        SELECT "id", "username", "email"
+        FROM "User"
         WHERE "email" = ${email};
       `;
   
@@ -79,29 +99,37 @@ login = async(req, res) => {
         // No user found with that email
         return res.status(400).json({ error: "Invalid email or password" });
       }
-  
+
       const user = result[0];
+      const passwordHash = await sql`
+        SELECT "password hash"
+        FROM auth."Passwords"
+        WHERE "user id" = ${user.id};
+      `;
   
       // Compare the provided password with the stored password
-      // Assuming you use bcrypt or another hashing library for password comparison
-      passwordHash = await hashPassword(password);
-      const isPasswordValid = await bcrypt.compare(passwordHash, user.password);
-      console.log("", isPasswordValid);
-      console.log("", passwordHash);
-      console.log("", user.password);
-      // const isPasswordValid = password ==  user.password;
+      const isPasswordValid = await bcrypt.compare(password, passwordHash[0]['password hash']);
   
       if (!isPasswordValid) {
         return res.status(400).json({ error: "Invalid email or password" });
       }
-  
+
+      // Payload data for JWT
+      const payload = {
+        userId: user.id,
+        username: user.username,
+      };
+
+      const token = jwt.sign(payload, secretKey, { algorithm: 'HS256', expiresIn: '1h' });
+      
       // Password is correct, respond with user data
       res.status(200).json({
         message: "Logged in successfully",
-        profilepic: "https://res.cloudinary.com/dz1sjecr6/image/upload/"+ user.profile_pic,
-        user_id: user.user_id,
-        username: user.username,
-        email: user.email,
+        // profilepic: "https://res.cloudinary.com/dz1sjecr6/image/upload/"+ user.profile_pic,
+        // user_id: user.user_id,
+        // username: user.username,
+        // email: user.email,
+        token: token, // Send the token as part of the response
       });
     } catch (err) {
       console.error("Error logging in user:", err);
@@ -109,4 +137,19 @@ login = async(req, res) => {
     }
 }
 
-module.exports = { login, register };
+userDetails = async (req, res) => {
+  const userId = req.userId;  
+  console.log("user id", userId);
+  const result = await sql`
+    SELECT *
+    FROM "User"
+    WHERE "id" = ${userId};
+  `;
+  if (result[0]) {
+    res.json(result);
+  } else {
+    res.status(404).json({ error: 'User not found' });
+  }
+
+}
+module.exports = { checkUser, register, login, userDetails };
