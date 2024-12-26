@@ -2,6 +2,8 @@ require("dotenv").config();
 const jwt = require('jsonwebtoken');
 const { neon } = require("@neondatabase/serverless");
 const bcrypt = require("bcrypt");
+const { getUserPost } = require("./postController");
+const { getUserProjects } = require("./projectController");
 
 const sql = neon(process.env.DATABASE_URL);
 const secretKey = process.env.JWT_SECRET_KEY;
@@ -152,4 +154,30 @@ userDetails = async (req, res) => {
   }
 
 }
-module.exports = { checkUser, register, login, userDetails };
+
+myworks = async (req, res) => {
+  const userId = req.userId;  
+  console.log("user id", userId);
+  const result = await sql`
+    SELECT *
+    FROM "User"
+    WHERE "id" = ${userId};
+  `;
+  const posts = await getUserPost(req, res);
+  const projects =  await getUserProjects(req, res);
+  if (result[0]) {
+    // console.log("ye giya: ",[
+    //   posts,
+    //   projects
+    // ] );
+    res.json({
+      posts,
+      projects
+    });
+  } else {
+    res.status(404).json({ error: 'User not found' });
+  }
+
+}
+
+module.exports = { checkUser, register, login, userDetails, myworks };

@@ -1,5 +1,5 @@
 const express = require('express');
-const { checkUser, login, register, userDetails } = require('../controllers/userController');
+const { checkUser, login, register, userDetails, myworks } = require('../controllers/userController');
 const authEmail = require('../middleware/authEmail');
 const authJWT = require('../middleware/authJWT');
 const router = express.Router();
@@ -23,6 +23,10 @@ router.post('/login', async (req, res) => {
 
 router.get('/', async (req, res) => {
     authJWT(req, res, userDetails);
+});
+
+router.get('/myworks', async (req, res) => {
+    authJWT(req, res, myworks);
 });
 
 module.exports = router;

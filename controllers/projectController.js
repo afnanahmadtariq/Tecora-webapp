@@ -31,7 +31,6 @@ exports.createProject = async (req, res) => {
   }
 };
 
-
 exports.feedProjects = async (req, res) => {
   try {
     const result = await sql`
@@ -44,6 +43,26 @@ exports.feedProjects = async (req, res) => {
       message: "Feed of Projects",
       feed: result,
     });
+  } catch (err) {
+    console.error("Error getting posts feed:", err);
+    res.status(500).json({ error: "Failed to get feed posts" });
+  }
+}
+
+exports.getUserProjects = async (req, res) => {
+  try {
+    const result = await sql`
+    SELECT "profile pic", "username", "name", "description", "date of creation", "community id", "progress"
+    FROM "Project"
+    LEFT JOIN "User" ON "Project"."user id" = "User"."id"
+    WHERE "Project"."user id" = ${req.userId};
+  `;
+    // console.log(result); 
+    // res.status(201).json({
+    //   message: "Feed of Projects",
+    //   feed: result,
+    // });
+    return result;
   } catch (err) {
     console.error("Error getting posts feed:", err);
     res.status(500).json({ error: "Failed to get feed posts" });

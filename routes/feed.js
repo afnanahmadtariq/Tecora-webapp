@@ -11,9 +11,6 @@ router.get('/experts', async (req, res) => {
 
 });
 
-router.get('/projects', async (req, res) => {
-
-});
 
 module.exports = router;
 

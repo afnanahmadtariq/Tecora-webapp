@@ -17,7 +17,6 @@ app.use(morgan("dev")); // Add this line for logging
 // Routes
 app.use("/api/user", userRoutes); 
 app.use("/api/feed", feedRoutes); 
-app.use("/api/create", createRoutes); 
 app.use("/api/posts", postsRoutes); 
 
 
