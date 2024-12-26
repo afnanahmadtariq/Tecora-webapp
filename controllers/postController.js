@@ -4,7 +4,7 @@ const { neon } = require('@neondatabase/serverless');
 const sql = neon(process.env.DATABASE_URL);
 
 exports.createPost = async (req, res) => {
-  const { user_id, title, content, tech_stack } = req.body;
+  const { userId, title, content, tech_stack } = req.body;
 
   // Validation
   if (!title || !content) {
@@ -14,7 +14,7 @@ exports.createPost = async (req, res) => {
   try {
     const result = await sql`
       INSERT INTO "Post" ("user id", "title", "description")
-      VALUES ( ${user_id}, ${title}, ${content})
+      VALUES ( ${userId}, ${title}, ${content})
       RETURNING "id";
     `;
     // await sql`
@@ -39,7 +39,7 @@ exports.feedPosts = async (req, res) => {
     LEFT JOIN "User" ON "Post"."user id" = "User"."id";
   `;
     console.log(result); 
-    res.status(201).json({
+    res.status(200).json({
       message: "Feed of Posts",
       feed: result,
     });
@@ -58,12 +58,32 @@ exports.getPost = async (id, req, res) => {
     WHERE "Post"."id" = ${id};
   `;
     console.log(result); 
-    res.status(201).json({
+    res.status(200).json({
       message: "Feed of Posts",
       feed: result,
     });
   } catch (err) {
     console.error("Error getting posts feed:", err);
+    res.status(500).json({ error: "Failed to get feed posts" });
+  }
+}
+
+exports.getMyPost = async (req, res) => {
+  console.log("user id ", req.userId);
+  try {
+    const result = await sql`
+    SELECT "profile pic", "username", "Post"."id", "title", "description", "date of posting", "project id", "community id", "type"
+    FROM "Post"
+    LEFT JOIN "User" ON "Post"."user id" = "User"."id"
+    WHERE "Post"."user id" = ${req.userId};
+  `;
+    console.log(result); 
+    res.status(200).json({
+      message: "Feed of Posts",
+      myposts: result,
+    });
+  } catch (err) {
+    console.error("Error getting posts :", err);
     res.status(500).json({ error: "Failed to get feed posts" });
   }
 }
