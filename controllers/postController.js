@@ -34,11 +34,13 @@ exports.createPost = async (req, res) => {
 exports.feedPosts = async (req, res) => {
   try {
     const result = await sql`
-    SELECT "profile pic", "username", "Post"."id", "title", "description", "date of posting", "project id", "community id", "type", "upvotes", "downvotes"
-    FROM "Post"
-    LEFT JOIN "User" ON "Post"."user id" = "User"."id"
-    LEFT JOIN "Post Aura" ON "Post Aura"."post id" = "Post"."id";
-  `;
+      SELECT "profile pic", "username", "Post"."id", "title", "description", "Post"."date of posting", "project id", "community id", "type", "upvotes", "downvotes", COUNT("Reply"."id") AS "replies"
+      FROM "Post"
+      LEFT JOIN "User" ON "Post"."user id" = "User"."id"
+      LEFT JOIN "Post Aura" ON "Post Aura"."post id" = "Post"."id"
+      LEFT JOIN "Reply" ON "Reply"."post id" = "Post"."id"
+      GROUP BY "Post"."id", "User"."id", "Post Aura"."post id";;
+    `;
     console.log(result); 
     res.status(200).json({
       message: "Feed of Posts",
@@ -90,20 +92,40 @@ exports.getUserPost = async (req, res) => {
 }
 
 exports.getReplies = async (req, res) => {
+  const { id } = req.headers;
+  console.log(id);
   try {
     const result = await sql`
-    SELECT "profile pic", "username", "Post"."id", "title", "description", "date of posting", "project id", "community id", "type"
-    FROM "Post"
-    LEFT JOIN "User" ON "Post"."user id" = "User"."id"
-    WHERE "Post"."id" = ${id};
+    SELECT *
+    FROM "Reply"
+    WHERE "Reply"."post id" = ${id};
   `;
     console.log(result); 
     res.status(200).json({
-      message: "Feed of Posts",
-      feed: result,
+      message: "Replies of Post",
+      replies: result,
     });
   } catch (err) {
-    console.error("Error getting posts feed:", err);
-    res.status(500).json({ error: "Failed to get feed posts" });
+    console.error("Error getting replies:", err);
+    res.status(500).json({ error: "Failed to get replies" });
   }
 }
+
+exports.reply = async (req, res) => {
+  const { id, text } = req.body
+
+  try {
+    const result = await sql`
+      INSERT INTO "Reply" ("user id", "post id", "text")
+      VALUES ( ${req.userId}, ${id}, ${text})
+      RETURNING "id";
+    `;
+    res.status(201).json({
+      message: "Reply created successfully",
+      post_id: result[0],
+    });
+  } catch (err) {
+    console.error("Error inserting post data:", err);
+    res.status(500).json({ error: "Failed to create post" });
+  }
+};

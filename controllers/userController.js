@@ -2,11 +2,35 @@ require("dotenv").config();
 const jwt = require('jsonwebtoken');
 const { neon } = require("@neondatabase/serverless");
 const bcrypt = require("bcrypt");
+const cloudinary = require('cloudinary').v2;
 const { getUserPost } = require("./postController");
 const { getUserProjects } = require("./projectController");
 
 const sql = neon(process.env.DATABASE_URL);
 const secretKey = process.env.JWT_SECRET_KEY;
+cloudinary.config({
+  secure: true
+});
+console.log(cloudinary.config());
+
+const uploadToCloudinary = async (imagePath) => {
+  // Use the uploaded file's name as the asset's public ID and 
+  // allow overwriting the asset with new versions
+  const options = {
+      use_filename: true,
+      unique_filename: false,
+      overwrite: true,
+  };
+
+  try {
+      // Upload the image
+      const result = await cloudinary.uploader.upload(imagePath, options);
+      console.log(result);
+      return result.public_id;
+  } catch (error) {
+      console.error(error);
+  }
+};
 
 checkUser = async(username, email) => {
   try {
@@ -155,6 +179,41 @@ userDetails = async (req, res) => {
 
 }
 
+update = async (req, res) => {
+  const { username, email, password, bio, profile_pic, expertise, social_links } = req.body;
+  let uploadedImageUrl;
+    
+    // If a new image is selected, upload to Cloudinary first
+    // if (profile_pic && typeof profile_pic !== 'string') {
+        const file = profile_pic;
+        uploadedImageUrl = await uploadToCloudinary(file);
+        if (!uploadedImageUrl) {
+        console.log("Failed to upload the image. Please try again.");
+        return;
+        }
+    // }
+  const url = cloudinary.url(uploadedImageUrl);
+  try {
+    const result = await sql`
+      UPDATE "User"
+      SET 
+        "username" = ${username},
+        "email" = ${email},
+        "bio" = ${bio},
+        "profile pic" = ${url}
+      WHERE "id" = ${req.userId}
+      RETURNING "id";
+    `;
+    res.status(201).json({
+      message: "User updated successfully",
+      user_id: result[0].id,
+    });
+  } catch (err) {
+    console.error("Error inserting user data:", err);
+    res.status(500).json({ error: "Failed to create user" });
+  }
+}
+
 myworks = async (req, res) => {
   const userId = req.userId;  
   console.log("user id", userId);
@@ -180,4 +239,4 @@ myworks = async (req, res) => {
 
 }
 
-module.exports = { checkUser, register, login, userDetails, myworks };
+module.exports = { checkUser, register, login, userDetails, update, myworks };
