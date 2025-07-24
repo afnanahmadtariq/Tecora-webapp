@@ -3,33 +3,78 @@ const { neon } = require('@neondatabase/serverless');
 
 const sql = neon(process.env.DATABASE_URL);
 
-exports.createPost = async (req, res) => {
-  const { title, content, tech_stack } = req.body
+const cloudinary = require('cloudinary').v2;
+cloudinary.config({ secure: true });
 
-  // Validation
-  if (!title || !content) {
-    return res.status(400).json({ message: 'Title and content are required.' });
+exports.createPost = async (req, res) => {
+  const { type, title, content, media, options } = req.body;
+
+  // Validation by type
+  if (!type || !title) {
+    return res.status(400).json({ message: 'Type and title are required.' });
+  }
+  if (type === 'post' && (!content && !media)) {
+    return res.status(400).json({ message: 'Content or media is required for a post.' });
+  }
+  if (type === 'question' && !content) {
+    return res.status(400).json({ message: 'Content is required for a question.' });
+  }
+  if (type === 'poll' && (!options || !Array.isArray(options) || options.length < 2)) {
+    return res.status(400).json({ message: 'Options (at least 2) are required for a poll.' });
   }
 
+  let mediaPublicId = null;
+  let mediaUrl = null;
   try {
-    const result = await sql`
-      INSERT INTO "Post" ("user id", "title", "description")
-      VALUES ( ${req.userId}, ${title}, ${content})
+    // If media is provided, upload to Cloudinary (media should be a file path or base64 string)
+    if (media) {
+      const uploadResult = await cloudinary.uploader.upload(media, {
+        use_filename: true,
+        unique_filename: false,
+        overwrite: true,
+      });
+      mediaPublicId = uploadResult.public_id;
+      mediaUrl = cloudinary.url(mediaPublicId);
+    }
+
+    // Insert into Post, store mediaPublicId in description if content is not present, or append to content
+    let description = content || '';
+    if (mediaPublicId) {
+      // You can choose to store the public_id or the URL; here, we append the public_id as JSON
+      description = JSON.stringify({ content: description, media: mediaPublicId });
+    }
+
+    const postResult = await sql`
+      INSERT INTO "Post" ("user id", "title", "description", "type")
+      VALUES (${req.userId}, ${title}, ${description}, ${type})
       RETURNING "id";
     `;
-    // await sql`
-    //   INSERT INTO "
-    // `;
-    // Get Tech stack id from tech stack table and enter in post tech stack table
+    const postId = postResult[0]?.id;
+    if (!postId) throw new Error('Post creation failed.');
+
+    // Handle type-specific logic
+    if (type === 'question') {
+      await sql`
+        INSERT INTO "Question" ("post id") VALUES (${postId});
+      `;
+    } else if (type === 'poll') {
+      for (const option of options) {
+        await sql`
+          INSERT INTO "Poll" ("post id", "option") VALUES (${postId}, ${option});
+        `;
+      }
+    }
+
     res.status(201).json({
       message: "Post created successfully",
-      post_id: result[0],
+      post_id: postId,
+      media: mediaPublicId ? { public_id: mediaPublicId, url: mediaUrl } : undefined,
     });
   } catch (err) {
     console.error("Error inserting post data:", err);
     res.status(500).json({ error: "Failed to create post" });
   }
-};
+}
 
 exports.feedPosts = async (req, res) => {
   try {
