@@ -8,6 +8,3 @@ router.post('/post', createPost);
 router.post('/project', createProject);
 
 module.exports = router;
-
-
-  
