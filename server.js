@@ -4,7 +4,9 @@ const cors = require("cors");
 const userRoutes = require("./routes/user");
 const feedRoutes = require("./routes/feed");
 const createRoutes = require("./routes/create");
+
 const postsRoutes = require("./routes/posts");
+const projectRoutes = require("./routes/project");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -18,6 +20,7 @@ app.use(morgan("dev")); // Add this line for logging
 app.use("/api/user", userRoutes); 
 app.use("/api/feed", feedRoutes); 
 app.use("/api/posts", postsRoutes); 
+app.use("/api/projects", projectRoutes); 
 
 
 

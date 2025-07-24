@@ -1,11 +1,11 @@
 const express = require('express');
-const { checkUser, login, register, userDetails, update, myworks } = require('../controllers/userController');
+const { checkUser, login, register, userDetails, update, myworks, getExperts } = require('../controllers/userController');
 const authEmail = require('../middleware/authEmail');
 const authJWT = require('../middleware/authJWT');
 const router = express.Router();
 
-router.post('/register', async (req, res) => {
-    const { username, email} = req.body;
+router.post('/register', async (req, res, next) => {
+    const { username, email } = req.body;
     switch (await checkUser(username, email)) {
         case "found both":
             return res.status(409).json({ error: "Username and email are already taken" });
@@ -14,8 +14,8 @@ router.post('/register', async (req, res) => {
         case "found email":
             return res.status(409).json({ error: "Email is already taken" });
     }
-    authEmail(req, res, register);
-});
+    next();
+}, authEmail, register);
 
 router.post('/login', async (req, res) => {
     login(req, res);
@@ -31,6 +31,17 @@ router.post('/update', async (req, res) => {
 
 router.get('/myworks', async (req, res) => {
     authJWT(req, res, myworks);
+});
+
+// GET /api/user/experts
+router.get('/experts', async (req, res) => {
+    try {
+        const result = await getExperts(req, res);
+        // If the controller sends the response, do nothing here
+        // Otherwise, you can send the result if needed
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch experts' });
+    }
 });
 
 module.exports = router;
@@ -51,4 +62,3 @@ module.exports = router;
 //       res.status(401).send('Invalid or expired token');
 //     }
 //   });
-  

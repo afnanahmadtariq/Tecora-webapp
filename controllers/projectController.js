@@ -34,37 +34,31 @@ exports.createProject = async (req, res) => {
 exports.feedProjects = async (req, res) => {
   try {
     const result = await sql`
-    SELECT "profile pic", "username", "name", "description", "date of creation", "community id", "progress"
-    FROM "Project"
-    LEFT JOIN "User" ON "Project"."user id" = "User"."id";
-  `;
-    console.log(result); 
-    res.status(201).json({
+      SELECT "profile pic", "username", "name", "description", "date of creation", "community id", "progress"
+      FROM "Project"
+      LEFT JOIN "User" ON "Project"."user id" = "User"."id";
+    `;
+    res.status(200).json({
       message: "Feed of Projects",
       feed: result,
     });
   } catch (err) {
-    console.error("Error getting posts feed:", err);
-    res.status(500).json({ error: "Failed to get feed posts" });
+    console.error("Error getting projects feed:", err);
+    res.status(500).json({ error: "Failed to get feed projects" });
   }
 }
 
 exports.getUserProjects = async (req, res) => {
   try {
     const result = await sql`
-    SELECT "profile pic", "username", "name", "description", "date of creation", "community id", "progress"
-    FROM "Project"
-    LEFT JOIN "User" ON "Project"."user id" = "User"."id"
-    WHERE "Project"."user id" = ${req.userId};
-  `;
-    // console.log(result); 
-    // res.status(201).json({
-    //   message: "Feed of Projects",
-    //   feed: result,
-    // });
+      SELECT "profile pic", "username", "name", "description", "date of creation", "community id", "progress"
+      FROM "Project"
+      LEFT JOIN "User" ON "Project"."user id" = "User"."id"
+      WHERE "Project"."user id" = ${req.userId};
+    `;
     return result;
   } catch (err) {
-    console.error("Error getting posts feed:", err);
-    res.status(500).json({ error: "Failed to get feed posts" });
+    console.error("Error getting user's projects:", err);
+    return null;
   }
 }

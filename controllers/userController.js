@@ -225,10 +225,6 @@ myworks = async (req, res) => {
   const posts = await getUserPost(req, res);
   const projects =  await getUserProjects(req, res);
   if (result[0]) {
-    // console.log("ye giya: ",[
-    //   posts,
-    //   projects
-    // ] );
     res.json({
       posts,
       projects
@@ -239,4 +235,26 @@ myworks = async (req, res) => {
 
 }
 
-module.exports = { checkUser, register, login, userDetails, update, myworks };
+// Get all users with expertise (experts)
+
+// Fetch users with the highest upvotes in User Aura as 'experts'
+getExperts = async (req, res) => {
+  try {
+    const result = await sql`
+      SELECT u.*, ua."upvotes", ua."downvotes"
+      FROM "User" u
+      JOIN "User Aura" ua ON u."id" = ua."user id"
+      ORDER BY ua."upvotes" DESC
+      LIMIT 10;
+    `;
+    res.status(200).json({
+      message: "Experts fetched successfully",
+      experts: result
+    });
+  } catch (err) {
+    console.error("Error fetching experts:", err);
+    res.status(500).json({ error: "Failed to fetch experts" });
+  }
+}
+
+module.exports = { checkUser, register, login, userDetails, update, myworks, getExperts };
