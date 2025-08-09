@@ -62,3 +62,33 @@ exports.getUserProjects = async (req, res) => {
     return null;
   }
 }
+
+exports.getProjectById = async (req, res) => {
+  const { id } = req.params;
+
+  // Validate that id is a valid integer
+  if (!Number.isInteger(Number(id))) {
+    return res.status(400).json({ message: "Invalid project ID" });
+  }
+
+  try {
+    const result = await sql`
+      SELECT "profile pic", "username", "name", "description", "date of creation", "community id", "progress"
+      FROM "Project"
+      LEFT JOIN "User" ON "Project"."user id" = "User"."id"
+      WHERE "Project"."id" = ${id};
+    `;
+
+    if (result.length === 0) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    res.status(200).json({
+      message: "Project details",
+      project: result[0],
+    });
+  } catch (err) {
+    console.error("Error fetching project by ID:", err);
+    res.status(500).json({ error: "Failed to fetch project" });
+  }
+};
