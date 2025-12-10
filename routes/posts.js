@@ -3,9 +3,9 @@ const { getPost, getMyPost, createPost, getReplies, reply } = require('../contro
 const authJWT = require('../middleware/authJWT');
 const router = express.Router();
 
-router.get('/getpost/:id', (req, res) => {
-  const { id } = req.params;
-  getPost(id, req, res);
+// Support both param-based ID (backward compatibility) and header-based ID (new contract)
+router.get('/getpost/:id?', (req, res) => {
+  getPost(req, res);
 });
 
 router.get('/myposts', async (req, res) => {
@@ -17,7 +17,7 @@ router.post('/create', async (req, res) => {
 });
 
 router.get('/getreplies', async (req, res) => {
-  authJWT(req, res,  getReplies);
+  authJWT(req, res, getReplies);
 });
 
 router.post('/reply', async (req, res) => {

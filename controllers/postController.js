@@ -1,4 +1,4 @@
-require("dotenv").config(); 
+require("dotenv").config();
 const { neon } = require('@neondatabase/serverless');
 
 const sql = neon(process.env.DATABASE_URL);
@@ -78,18 +78,63 @@ exports.createPost = async (req, res) => {
 
 exports.feedPosts = async (req, res) => {
   try {
+    const { topic } = req.query; // Optional topic filter
+
     const result = await sql`
-      SELECT "profile pic", "username", "Post"."id", "title", "description", "Post"."date of posting", "project id", "community id", "type", "upvotes", "downvotes", COUNT("Reply"."id") AS "replies"
+      SELECT "profile pic", "username", "designation", "Post"."id", "title", "description", "Post"."date of posting", "project id", "community id", "type", "upvotes", "downvotes", COUNT("Reply"."id") AS "replies"
       FROM "Post"
       LEFT JOIN "User" ON "Post"."user id" = "User"."id"
       LEFT JOIN "Post Aura" ON "Post Aura"."post id" = "Post"."id"
       LEFT JOIN "Reply" ON "Reply"."post id" = "Post"."id"
-      GROUP BY "Post"."id", "User"."id", "Post Aura"."post id";;
+      GROUP BY "Post"."id", "User"."id", "Post Aura"."post id";
     `;
-    console.log(result); 
+
+    // Transform the result to match expected API contract
+    let feed = result.map(post => {
+      // Try to extract tags from description if it's JSON
+      let tags = [];
+      let description = post.description || '';
+      try {
+        const parsed = JSON.parse(description);
+        if (parsed.tags) {
+          tags = Array.isArray(parsed.tags) ? parsed.tags : parsed.tags.split(',').map(t => t.trim());
+        }
+      } catch (e) {
+        // Not JSON, use type as a tag fallback
+        if (post.type) {
+          tags = [post.type];
+        }
+      }
+
+      // Format date to "Mon DD, YYYY" format
+      const dateObj = new Date(post['date of posting']);
+      const formattedDate = dateObj.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+
+      return {
+        id: post.id,
+        title: post.title,
+        username: post.username || 'Anonymous',
+        designation: post.designation || '',
+        profilePic: post['profile pic'] || '',
+        date: formattedDate,
+        tags: tags,
+        replies: parseInt(post.replies) || 0
+      };
+    });
+
+    // Filter by topic if provided
+    if (topic) {
+      feed = feed.filter(post =>
+        post.tags.some(tag => tag.toLowerCase().includes(topic.toLowerCase()))
+      );
+    }
+
     res.status(200).json({
-      message: "Feed of Posts",
-      feed: result,
+      feed: feed,
     });
   } catch (err) {
     console.error("Error getting posts feed:", err);
@@ -97,22 +142,71 @@ exports.feedPosts = async (req, res) => {
   }
 }
 
-exports.getPost = async (id, req, res) => {
+exports.getPost = async (req, res) => {
+  // Get ID from headers or params for backward compatibility
+  const id = req.headers.id || req.params?.id;
+
+  if (!id) {
+    return res.status(400).json({ error: "Post ID is required" });
+  }
+
   try {
     const result = await sql`
-    SELECT "profile pic", "username", "Post"."id", "title", "description", "date of posting", "project id", "community id", "type"
-    FROM "Post"
-    LEFT JOIN "User" ON "Post"."user id" = "User"."id"
-    WHERE "Post"."id" = ${id};
-  `;
-    console.log(result); 
+      SELECT "profile pic", "username", "designation", "Post"."id", "title", "description", "date of posting", "project id", "community id", "type"
+      FROM "Post"
+      LEFT JOIN "User" ON "Post"."user id" = "User"."id"
+      WHERE "Post"."id" = ${id};
+    `;
+
+    if (result.length === 0) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+
+    const postData = result[0];
+
+    // Extract media and content from description if JSON
+    let description = postData.description || '';
+    let media = null;
+    let tags = '';
+
+    try {
+      const parsed = JSON.parse(postData.description);
+      description = parsed.content || '';
+      if (parsed.media) {
+        // Build Cloudinary URL from public_id
+        media = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME || 'dz1sjecr6'}/image/upload/${parsed.media}`;
+      }
+      if (parsed.tags) {
+        tags = Array.isArray(parsed.tags) ? parsed.tags.join(', ') : parsed.tags;
+      }
+    } catch (e) {
+      // Description is plain text, not JSON
+    }
+
+    // If no tags extracted, use type as fallback
+    if (!tags && postData.type) {
+      tags = postData.type;
+    }
+
+    const post = {
+      id: postData.id,
+      title: postData.title,
+      description: description,
+      date: postData['date of posting'],
+      tags: tags,
+      media: media,
+      username: postData.username || 'Anonymous',
+      designation: postData.designation || '',
+      profilePic: postData['profile pic'] || '',
+      type: postData.type
+    };
+
     res.status(200).json({
-      message: "Feed of Posts",
-      feed: result,
+      post: post,
     });
   } catch (err) {
-    console.error("Error getting posts feed:", err);
-    res.status(500).json({ error: "Failed to get feed posts" });
+    console.error("Error getting post:", err);
+    res.status(500).json({ error: "Failed to get post" });
   }
 }
 
@@ -138,17 +232,34 @@ exports.getUserPost = async (req, res) => {
 
 exports.getReplies = async (req, res) => {
   const { id } = req.headers;
-  console.log(id);
+
+  if (!id) {
+    return res.status(400).json({ error: "Post ID is required" });
+  }
+
   try {
     const result = await sql`
-    SELECT *
-    FROM "Reply"
-    WHERE "Reply"."post id" = ${id};
-  `;
-    console.log(result); 
+      SELECT "Reply"."id", "Reply"."text", "Reply"."date of reply", 
+             "User"."username", "User"."profile pic"
+      FROM "Reply"
+      LEFT JOIN "User" ON "Reply"."user id" = "User"."id"
+      WHERE "Reply"."post id" = ${id}
+      ORDER BY "Reply"."date of reply" DESC;
+    `;
+
+    // Transform to expected format
+    const replies = result.map(reply => ({
+      id: reply.id,
+      username: reply.username || 'Anonymous',
+      text: reply.text || '',
+      profilePic: reply['profile pic'] || '',
+      date: reply['date of reply'],
+      upvotes: 0,  // Default values since not in schema
+      downvotes: 0
+    }));
+
     res.status(200).json({
-      message: "Replies of Post",
-      replies: result,
+      replies: replies,
     });
   } catch (err) {
     console.error("Error getting replies:", err);
@@ -166,8 +277,9 @@ exports.reply = async (req, res) => {
       RETURNING "id";
     `;
     res.status(201).json({
+      success: true,
       message: "Reply created successfully",
-      post_id: result[0],
+      reply_id: result[0].id,
     });
   } catch (err) {
     console.error("Error inserting post data:", err);
